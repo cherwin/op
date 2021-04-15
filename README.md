@@ -33,7 +33,7 @@ func main() {
 }
 ```
 
-# Useful Resources
+# Resources
 * https://support.1password.com/connect-api-reference/
 * https://github.com/1Password/connect-sdk-go
 * https://support.1password.com/secrets-automation/
