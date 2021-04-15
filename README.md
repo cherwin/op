@@ -2,26 +2,36 @@
 
 # Usage
 
-    # create client
-    client, _ := op.NewClient("http://localhost:8080", op.WithTokenFromEnv())
+```golang
+package main
 
-    # get vault
-    vault, _ := c.Vault.Get("UIO")
+import (
+	"github.com/cherwin/op"
+)
 
-    # search for items
-    items, _ := vault.Item.Get(FilterByTags("root_token"))
+func main() {
+	// Create Client instance
+	client, _ := op.NewClient("http://localhost:8080", op.WithTokenFromEnv())
 
-    # create password
-    _ = vault.Item.Password.Create(
-            "MySecretPass", "s3cr3tp@ss",
-            WithTags("tags", "are", "cool"),
-    )
+	// Get Vault instance
+	vault, _ := client.Vault.Get("TestVault")
 
-    # create note
-    _ = vault.Item.Note.Create(
-            "MyNote", "could be any string, perhaps JSON :)",
-            WithTags("tags", "are", "cool"),
-    )
+	// Search for items
+	_, _ = vault.Item.Get(op.FilterByTags("some", "tag"))
+	
+	// Create password
+	_, _ = vault.Item.Password.Create(
+		"MySecretPass", "s3cr3tp@ss",
+		op.WithTags("always", "use", "tags"),
+	)
+
+	// Create note
+	_, _ = vault.Item.Note.Create(
+		"MyNote", "could be any string, perhaps JSON :)",
+		op.WithTags("they", "are", "useful"),
+	)
+}
+```
 
 # Useful Resources
 * https://support.1password.com/connect-api-reference/
