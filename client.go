@@ -11,34 +11,35 @@ import (
 
 const (
 	TokenKEY = "OPASSWORD_ACCESS_TOKEN"
-	VERSION = "/v1"
+	VERSION  = "/v1"
 )
 
 // ItemCategory Represents the template of the Item
 type ItemCategory string
 
 const (
-	Password             ItemCategory = "PASSWORD"
-	SecureNote           ItemCategory = "SECURE_NOTE"
-	Custom               ItemCategory = "CUSTOM"
+	Password   ItemCategory = "PASSWORD"
+	SecureNote ItemCategory = "SECURE_NOTE"
 )
 
 type Client struct {
-	conn *resty.Client
-	endpoint   string
-	token      string
+	conn     *resty.Client
+	endpoint string
+	token    string
 
 	Vault *VaultClient
 }
 
-
 type ItemClient struct {
 	client *Client
+
+	Note     *NoteClient
+	Password *PasswordClient
 }
 
 type VaultClient struct {
-	client  *Client
-	currentID string
+	client      *Client
+	currentID   string
 	currentName string
 
 	Item *ItemClient
@@ -62,13 +63,19 @@ func WithToken(value string) ClientOption {
 func NewClient(endpoint string, options ...ClientOption) (*Client, error) {
 	client := resty.New()
 	c := &Client{
-		conn: client,
+		conn:     client,
 		endpoint: endpoint + VERSION,
 	}
-	item := &ItemClient{client: c}
+	note := &NoteClient{client: c}
+	password := &PasswordClient{client: c}
+	item := &ItemClient{
+		client:   c,
+		Note:     note,
+		Password: password,
+	}
 	vault := &VaultClient{
 		client: c,
-		Item: item,
+		Item:   item,
 	}
 	c.Vault = vault
 
@@ -118,6 +125,10 @@ func (v Vault) ID() string {
 	return id
 }
 
+func (c *VaultClient) SetID(uuid string) {
+	c.currentID = uuid
+}
+
 type Item map[string]interface{}
 
 func (i Item) Tags() []string {
@@ -126,7 +137,6 @@ func (i Item) Tags() []string {
 	if !ok {
 		return []string{}
 	}
-
 	tags := make([]string, len(t))
 
 	for n, tag := range t {
@@ -240,6 +250,156 @@ func (c *ItemClient) Get(filters ...Filter) ([]Item, error) {
 	}
 	filtered := applyFilters(itemsDetailed, filters...)
 	return filtered, nil
+}
+
+type NoteClient struct {
+	client *Client
+}
+
+type PasswordClient struct {
+	client *Client
+}
+
+type ItemCreateOption func(Item) Item
+
+func WithTags(tags ...string) ItemCreateOption {
+	return func(item Item) Item {
+		return item.AppendTags(tags...)
+	}
+}
+
+func WithFields(fields ...map[string]interface{}) ItemCreateOption {
+	return func(item Item) Item {
+		item = item.AppendFields(fields...)
+		return item
+	}
+}
+
+func WithCategory(category ItemCategory) ItemCreateOption {
+	return func(item Item) Item {
+		item = item.SetCategory(category)
+		return item
+	}
+}
+
+func WithVaultID(uuid string) ItemCreateOption {
+	return func(item Item) Item {
+		item = item.SetVaultID(uuid)
+		return item
+	}
+}
+
+func (i Item) AppendTags(tags ...string) Item {
+	t := i.Tags()
+	t = append(t, tags...)
+	i["tags"] = t
+	return i
+}
+
+func (i Item) Fields() []map[string]interface{} {
+	fields, ok := i["fields"].([]map[string]interface{})
+	if !ok {
+		return make([]map[string]interface{}, 0)
+	}
+	return fields
+}
+
+func (i Item) SetVaultID(uuid string) Item {
+	i["vault"] = map[string]string{
+		"id": uuid,
+	}
+	return i
+}
+
+func (i Item) SetCategory(category ItemCategory) Item {
+	i["category"] = category
+	return i
+}
+
+func (i Item) AppendFields(fields ...map[string]interface{}) Item {
+	f := i.Fields()
+	f = append(f, fields...)
+	i["fields"] = f
+	return i
+}
+
+func NewItem(title string, options ...ItemCreateOption) Item {
+	item := Item{
+		"title":  title,
+		"tags":   make([]string, 0),
+		"fields": make([]map[string]interface{}, 0),
+	}
+	for _, option := range options {
+		item = option(item)
+	}
+	return item
+}
+
+func (c *NoteClient) New(title, content string, options ...ItemCreateOption) Item {
+	uuid := c.client.Vault.UUID()
+	item := NewItem(
+		title,
+		WithVaultID(uuid),
+		WithCategory(SecureNote),
+		WithFields(
+			map[string]interface{}{
+				"id":      "notesPlain",
+				"label":   "notesPlain",
+				"purpose": "NOTES",
+				"type":    "STRING",
+				"value":   content,
+			},
+		))
+	for _, option := range options {
+		item = option(item)
+	}
+	return item
+}
+
+func (c *NoteClient) Create(title, content string, options ...ItemCreateOption) (*Item, error) {
+	note := c.New(title, content, options...)
+	return c.client.Vault.Item.Add(note)
+}
+
+func (c *PasswordClient) New(title, secret string, options ...ItemCreateOption) Item {
+	uuid := c.client.Vault.UUID()
+	item := NewItem(
+		title,
+		WithVaultID(uuid),
+		WithCategory(Password),
+		WithFields(
+			map[string]interface{}{
+				"id":      "password",
+				"label":   "password",
+				"purpose": "PASSWORD",
+				"type":    "CONCEALED",
+				"value":   secret,
+			},
+		))
+	for _, option := range options {
+		item = option(item)
+	}
+	return item
+}
+
+func (c *PasswordClient) Create(title, secret string, options ...ItemCreateOption) (*Item, error) {
+	note := c.New(title, secret, options...)
+	return c.client.Vault.Item.Add(note)
+}
+
+func (c *ItemClient) Add(item Item) (*Item, error) {
+	uuid := c.client.Vault.UUID()
+	path := fmt.Sprintf("/vaults/%s/items", uuid)
+	endpoint := c.client.endpoint + path
+	result := new(Item)
+	resp, err := c.client.conn.R().SetResult(result).SetBody(item).Post(endpoint)
+	if err != nil {
+		return nil, errors.Wrapf(err, "connection error")
+	}
+	if resp.IsError() {
+		return nil, errors.Wrapf(err, "http error")
+	}
+	return result, nil
 }
 
 func applyFilters(items []Item, filters ...Filter) []Item {

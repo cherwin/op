@@ -22,7 +22,7 @@ func TestItemClient_Get(t *testing.T) {
 	require.Nil(t, err)
 	fmt.Println(vault.Name(), vault.UUID())
 	items, err := c.Vault.Item.Get(
-		FilterByTags("root_token"),
+		FilterByTags("root_token", "titanium"),
 	)
 	require.Nil(t, err)
 	for _, item := range items {
@@ -30,9 +30,29 @@ func TestItemClient_Get(t *testing.T) {
 	}
 }
 
+func TestNoteClient_Create(t *testing.T) {
+	c, err := NewClient("http://localhost:8080", WithTokenFromEnv())
+	require.Nil(t, err)
+	vault, err := c.Vault.Get("UIO")
+	require.Nil(t, err)
+	item, err := vault.Item.Note.Create("foo", "some test", WithTags("foo", "bar"))
+	require.Nil(t, err)
+	fmt.Println(item)
+}
+
+func TestPasswordClient_Create(t *testing.T) {
+	c, err := NewClient("http://localhost:8080", WithTokenFromEnv())
+	require.Nil(t, err)
+	vault, err := c.Vault.Get("UIO")
+	require.Nil(t, err)
+	item, err := vault.Item.Password.Create("new pass", "swordfish", WithTags("travolta"))
+	require.Nil(t, err)
+	fmt.Println(item)
+}
+
 func TestItemContainsTag(t *testing.T) {
 	tags := []string{"foo", "bar"}
-	item := Item{"tags":tags}
+	item := Item{"tags": tags}
 	found := itemContainsTag(item, "foo")
 	assert.True(t, found)
 
@@ -47,12 +67,12 @@ func TestFilterByTags(t *testing.T) {
 	items := []Item{
 		{
 			"tags": []string{
-			"foo", "bar",
+				"foo", "bar",
 			},
 		},
 		{
 			"tags": []string{
-			"bar", "quux",
+				"bar", "quux",
 			},
 		},
 		{
