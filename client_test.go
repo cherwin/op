@@ -21,7 +21,9 @@ func TestItemClient_Get(t *testing.T) {
 	vault, err := c.Vault.Get("UIO")
 	require.Nil(t, err)
 	fmt.Println(vault.Name(), vault.UUID())
-	items, err := c.Vault.Item.Get()
+	items, err := c.Vault.Item.Get(
+		FilterByTags("root_token"),
+	)
 	require.Nil(t, err)
 	for _, item := range items {
 		fmt.Println("*", item)
