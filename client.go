@@ -383,8 +383,8 @@ func (c *PasswordClient) New(title, secret string, options ...ItemCreateOption) 
 }
 
 func (c *PasswordClient) Create(title, secret string, options ...ItemCreateOption) (*Item, error) {
-	note := c.New(title, secret, options...)
-	return c.client.Vault.Item.Add(note)
+	password := c.New(title, secret, options...)
+	return c.client.Vault.Item.Add(password)
 }
 
 func (c *ItemClient) Add(item Item) (*Item, error) {
