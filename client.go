@@ -240,16 +240,16 @@ func (c *ItemClient) Get(filters ...Filter) ([]Item, error) {
 	if resp.IsError() {
 		return nil, errors.Wrapf(err, "http error")
 	}
-	itemsDetailed := make([]Item, len(items))
-	for n, i := range items {
+	filtered := applyFilters(items, filters...)
+	detailed := make([]Item, len(filtered))
+	for n, i := range filtered {
 		item, err := c.GetDetails(i.ID())
 		if err != nil {
 			return nil, err
 		}
-		itemsDetailed[n] = item
+		detailed[n] = item
 	}
-	filtered := applyFilters(itemsDetailed, filters...)
-	return filtered, nil
+	return detailed, nil
 }
 
 type NoteClient struct {
