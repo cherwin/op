@@ -93,7 +93,7 @@ func (c *VaultClient) Get(name string) (*VaultClient, error) {
 		return nil, errors.Wrapf(err, "connection error")
 	}
 	if resp.IsError() {
-		return nil, errors.Wrapf(err, "http error")
+		return nil, fmt.Errorf("http error: %d", resp.StatusCode())
 	}
 	for _, v := range vaults {
 		if name == v.Name() {

@@ -63,6 +63,14 @@ func TestItemContainsTag(t *testing.T) {
 	assert.False(t, found)
 }
 
+func TestNewClientWithBadToken(t *testing.T) {
+	c, err := NewClient("http://localhost:8080", WithToken("foo"))
+	require.Nil(t, err)
+	_, err = c.Vault.Get("Foo")
+	require.NotNil(t, err)
+	assert.EqualError(t, err, "http error: 401")
+}
+
 func TestFilterByTags(t *testing.T) {
 	items := []Item{
 		{
